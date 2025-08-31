@@ -9,6 +9,8 @@ const port = process.env.PORT || 5000;
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
 const lawyerRoutes = require("./routes/lawyer.route");
+const arbitratorRoutes = require("./routes/arbitrator.routes");
+const mediatorRoutes = require("./routes/mediator.routes");
 
 // Import database connection
 const { connectToDatabase } = require("./config/db");
@@ -32,6 +34,9 @@ app.get("/", (req, res) => {
 app.use("/", authRoutes);
 app.use("/", userRoutes);
 app.use("/", lawyerRoutes);
+app.use("/", arbitratorRoutes);
+app.use("/", mediatorRoutes);
+
 
 // Connect to database and start server
 connectToDatabase()
