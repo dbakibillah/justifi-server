@@ -11,6 +11,7 @@ const userRoutes = require("./routes/user.routes");
 const lawyerRoutes = require("./routes/lawyer.route");
 const arbitratorRoutes = require("./routes/arbitrator.routes");
 const mediatorRoutes = require("./routes/mediator.routes");
+const blogRoutes = require("./routes/blog.routes");
 
 // Import database connection
 const { connectToDatabase } = require("./config/db");
@@ -36,6 +37,7 @@ app.use("/", userRoutes);
 app.use("/", lawyerRoutes);
 app.use("/", arbitratorRoutes);
 app.use("/", mediatorRoutes);
+app.use("/",blogRoutes);
 
 
 // Connect to database and start server
