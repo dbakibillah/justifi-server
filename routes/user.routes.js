@@ -27,6 +27,7 @@ router.get("/currentUser", async (req, res) => {
 
 router.post("/users", async (req, res) => {
     const user = req.body;
+    user.role = "user";
     const result = await userCollection.insertOne(user);
     res.send(result);
 });
