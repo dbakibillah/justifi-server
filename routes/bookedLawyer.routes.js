@@ -33,9 +33,8 @@ router.get("/myAppointments", verifyToken, async (req, res) => {
 
 router.patch("/appointments/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
-    const { status, updatedAt } = req.body;
+    const { status, updatedAt, meetingLink, cancellationNote } = req.body;
 
-    // Validate the ID
     if (!ObjectId.isValid(id)) {
         return res.status(400).send({
             success: false,
@@ -43,7 +42,6 @@ router.patch("/appointments/:id", verifyToken, async (req, res) => {
         });
     }
 
-    // Validate status
     const validStatuses = [
         "pending",
         "confirmed",
@@ -59,7 +57,17 @@ router.patch("/appointments/:id", verifyToken, async (req, res) => {
         });
     }
 
-    // Create update object
+    const currentAppointment = await bookedLawyerCollection.findOne({
+        _id: new ObjectId(id),
+    });
+
+    if (!currentAppointment) {
+        return res.status(404).send({
+            success: false,
+            error: "Appointment not found",
+        });
+    }
+
     const updateData = {
         $set: {
             status: status,
@@ -67,7 +75,14 @@ router.patch("/appointments/:id", verifyToken, async (req, res) => {
         },
     };
 
-    // Update the appointment
+    if (status === "confirmed" && meetingLink) {
+        updateData.$set["booking.meetingLink"] = meetingLink;
+    }
+
+    if (status === "cancelled" && cancellationNote) {
+        updateData.$set["booking.cancellationNote"] = cancellationNote;
+    }
+
     const result = await bookedLawyerCollection.updateOne(
         { _id: new ObjectId(id) },
         updateData
@@ -85,6 +100,12 @@ router.patch("/appointments/:id", verifyToken, async (req, res) => {
         modifiedCount: result.modifiedCount,
         matchedCount: result.matchedCount,
         message: `Appointment status updated to ${status}`,
+        data: {
+            status,
+            meetingLink: status === "confirmed" ? meetingLink : undefined,
+            cancellationNote:
+                status === "cancelled" ? cancellationNote : undefined,
+        },
     });
 });
 
