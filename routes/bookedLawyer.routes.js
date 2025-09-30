@@ -22,15 +22,24 @@ router.post("/bookings", async (req, res) => {
 // Get appointments for a specific lawyer
 router.get("/myAppointments", verifyToken, async (req, res) => {
     const { email } = req.query;
-
-    // Query by lawyer email from the nested lawyer object
     const query = { "lawyer.email": email };
-    const cursor = bookedLawyerCollection.find(query);
+    const cursor = bookedLawyerCollection.find(query).sort({ createdAt: -1 });
     const result = await cursor.toArray();
 
     res.send(result);
 });
 
+// Get appointments for a specific user
+router.get("/userAppointments", verifyToken, async (req, res) => {
+    const { email } = req.query;
+    const query = { "user.email": email };
+    const cursor = bookedLawyerCollection.find(query).sort({ createdAt: -1 });
+    const result = await cursor.toArray();
+
+    res.send(result);
+});
+
+// Update appointment status and related fields for a specific lawyer
 router.patch("/appointments/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
     const { status, updatedAt, meetingLink, cancellationNote } = req.body;
