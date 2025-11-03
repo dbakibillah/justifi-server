@@ -6,13 +6,9 @@ const { client } = require("../config/db");
 // jwt authentication
 router.post("/jwt", (req, res) => {
     const { email, name, picture } = req.body;
-    const token = jwt.sign(
-        { email, name, picture },
-        process.env.ACCESS_TOKEN,
-        {
-            expiresIn: "24h",
-        }
-    );
+    const token = jwt.sign({ email, name, picture }, process.env.ACCESS_TOKEN, {
+        expiresIn: "30d",
+    });
 
     res.cookie("token", token, {
         httpOnly: true,
