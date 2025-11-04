@@ -90,6 +90,7 @@ router.get("/my-arbitrations", verifyToken, async (req, res) => {
     try {
         const userEmail = req.user.email;
         const status = req.query.status;
+        //! Pagination should be deleted later
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
