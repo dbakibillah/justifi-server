@@ -36,8 +36,8 @@ router.post("/arbitration-requests", verifyToken, async (req, res) => {
             currency: "BDT",
             tran_id: arbitrationId,
             success_url: `http://localhost:5000/payment/success/${arbitrationId}`,
-            fail_url: "http://localhost:5000/payment/fail",
-            cancel_url: "http://localhost:5000/payment/fail",
+            fail_url: `http://localhost:5000/payment/fail/${arbitrationId}`,
+            cancel_url: `http://localhost:5000/payment/fail/${arbitrationId}`,
             ipn_url: "http://localhost:3030/ipn",
             shipping_method: "Courier",
             product_name: "Computer.",
@@ -86,11 +86,11 @@ router.post("/payment/success/:arbitrationId", async (req, res) => {
     const { arbitrationId } = req.params;
     const result = await arbitrationCollection.updateOne(
         { arbitrationId: arbitrationId },
-        { $set: { payment_status: true } }
+        { $set: {
+             payment_status: "success",
+                paidAt: new Date(),
+         } }
     );
-    const newArbitration = await arbitrationCollection.findOne({
-        arbitrationId: arbitrationId,
-    });
 
     if (result.matchedCount > 0) {
         res.redirect(
@@ -99,7 +99,27 @@ router.post("/payment/success/:arbitrationId", async (req, res) => {
     }
 });
 
-router.post("/payment/fail", (req, res) => {
+router.post("/payment/fail/:arbitrationId",async (req, res) => {
+     const { arbitrationId } = req.params;
+    const result = await arbitrationCollection.updateOne(
+        { arbitrationId: arbitrationId },
+        { $set: {
+             payment_status: "failed",
+                paidAt: new Date(),
+         } }
+    );
+    res.redirect("http://localhost:5173/payment-failed");
+});
+
+router.post("/payment/cancel/:arbitrationId",async (req, res) => {
+     const { arbitrationId } = req.params;
+    const result = await arbitrationCollection.updateOne(
+        { arbitrationId: arbitrationId },
+        { $set: {
+             payment_status: "canceled",
+                paidAt: new Date(),
+         } }
+    );
     res.redirect("http://localhost:5173/payment-failed");
 });
 

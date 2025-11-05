@@ -15,6 +15,7 @@ const bookedLawyerRoutes = require("./routes/bookedLawyer.routes");
 const blogRoutes = require("./routes/blog.routes");
 const arbitrationRoutes = require("./routes/arbitration.routes");
 
+
 // Import database connection
 const { connectToDatabase } = require("./config/db");
 
