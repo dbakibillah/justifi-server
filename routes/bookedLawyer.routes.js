@@ -43,10 +43,10 @@ router.post("/bookings", async (req, res) => {
             total_amount: LawyerInfo.fee || 4500,
             currency: "BDT",
             tran_id,
-            success_url: `http://localhost:5000/api/payment/success/${tran_id}`,
-            fail_url: `http://localhost:5000/api/payment/fail/${tran_id}`,
-            cancel_url: `http://localhost:5000/api/payment/cancel/${tran_id}`,
-            ipn_url: "http://localhost:5000/api/payment/ipn",
+            success_url: `http://localhost:5000/payment/success/${tran_id}`,
+            fail_url: `http://localhost:5000/payment/fail/${tran_id}`,
+            cancel_url: `http://localhost:5000/payment/cancel/${tran_id}`,
+            ipn_url: "http://localhost:5000/payment/ipn",
             shipping_method: "Courier",
             product_name: "Lawyer Booking Fee",
             product_category: "Legal Service",
@@ -109,53 +109,53 @@ router.post("/bookings", async (req, res) => {
 
 
 
-// router.post("/payment/success/:tran_id", async (req, res) => {
-//     const { tran_id } = req.params;
+router.post("/payment/success/:tran_id", async (req, res) => {
+    const { tran_id } = req.params;
 
-//     await bookedLawyerCollection.updateOne(
-//         { tran_id },
-//         {
-//             $set: {
-//                 paymentStatus: "success",
-//                 paidAt: new Date(),
-//             },
-//         }
-//     );
+    await bookedLawyerCollection.updateOne(
+        { tran_id },
+        {
+            $set: {
+                paymentStatus: "success",
+                paidAt: new Date(),
+            },
+        }
+    );
 
-//     res.redirect(`http://localhost:5173/payment/success/${tran_id}`); // your frontend route
-// });
+    res.redirect(`http://localhost:5173/payment/success/${tran_id}`); // your frontend route
+});
 
-// router.post("/payment/fail/:tran_id", async (req, res) => {
-//     const { tran_id } = req.params;
+router.post("/payment/fail/:tran_id", async (req, res) => {
+    const { tran_id } = req.params;
 
-//     await bookedLawyerCollection.updateOne(
-//         { tran_id },
-//         {
-//             $set: {
-//                 paymentStatus: "failed",
-//                 failedAt: new Date(),
-//             },
-//         }
-//     );
+    await bookedLawyerCollection.updateOne(
+        { tran_id },
+        {
+            $set: {
+                paymentStatus: "failed",
+                failedAt: new Date(),
+            },
+        }
+    );
 
-//     res.redirect(`http://localhost:5173/payment/fail/${tran_id}`);
-// });
+    res.redirect(`http://localhost:5173/payment/fail/${tran_id}`);
+});
 
-// router.post("/payment/cancel/:tran_id", async (req, res) => {
-//     const { tran_id } = req.params;
+router.post("/payment/cancel/:tran_id", async (req, res) => {
+    const { tran_id } = req.params;
 
-//     await bookedLawyerCollection.updateOne(
-//         { tran_id },
-//         {
-//             $set: {
-//                 paymentStatus: "cancelled",
-//                 cancelledAt: new Date(),
-//             },
-//         }
-//     );
+    await bookedLawyerCollection.updateOne(
+        { tran_id },
+        {
+            $set: {
+                paymentStatus: "cancelled",
+                cancelledAt: new Date(),
+            },
+        }
+    );
 
-//     res.redirect(`http://localhost:5173/payment/cancel/${tran_id}`);
-// });
+    res.redirect(`http://localhost:5173/payment/cancel/${tran_id}`);
+});
 
 
 
