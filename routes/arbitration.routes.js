@@ -68,7 +68,7 @@ router.post("/arbitration-requests", verifyToken, async (req, res) => {
             res.send({ url: GatewayPageURL });
 
             arbitrationDetails.payment_status = false;
-            
+
             const arbitrationResult = await arbitrationCollection.insertOne(
                 arbitrationDetails
             );
