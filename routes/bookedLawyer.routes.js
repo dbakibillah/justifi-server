@@ -6,13 +6,11 @@ const verifyToken = require("../middleware/verifyToken");
 const verifyAdmin = require("../middleware/verifyAdmin");
 
 const SSLCommerzPayment = require("sslcommerz-lts");
-const { v4: uuidv4 } = require("uuid");
+// const { v4: uuidv4 } = require("uuid");
 
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASS;
 const is_live = false; // true for live, false for sandbox
-
-//
 
 const bookedLawyerCollection = client.db("justiFi").collection("bookedLawyers");
 const lawyers = client.db("justiFi").collection("lawyers");
@@ -23,16 +21,18 @@ router.get("/bookings", async (req, res) => {
     res.send(result);
 });
 
-
-
 router.post("/bookings", async (req, res) => {
     try {
         const booking = req.body;
 
         // 1️⃣ Get lawyer info from DB
-        const LawyerInfo = await lawyers.findOne({ email: booking.lawyer.email });
+        const LawyerInfo = await lawyers.findOne({
+            email: booking.lawyer.email,
+        });
         if (!LawyerInfo) {
-            return res.status(404).json({ success: false, message: "Lawyer not found" });
+            return res
+                .status(404)
+                .json({ success: false, message: "Lawyer not found" });
         }
 
         // 2️⃣ Create a unique transaction ID
@@ -73,13 +73,9 @@ router.post("/bookings", async (req, res) => {
             ship_country: "Bangladesh",
         };
 
-        console.log("🟢 Sending payment init:", data);
-
         // 4️⃣ Initialize SSLCommerz payment
         const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
         const apiResponse = await sslcz.init(data);
-
-        console.log("🟠 Payment Response:", apiResponse);
 
         if (!apiResponse?.GatewayPageURL) {
             return res.status(400).json({
@@ -99,15 +95,19 @@ router.post("/bookings", async (req, res) => {
         });
 
         // 6️⃣ Return Gateway URL to frontend
-        res.status(200).json({ success: true, url: apiResponse.GatewayPageURL });
-
+        res.status(200).json({
+            success: true,
+            url: apiResponse.GatewayPageURL,
+        });
     } catch (error) {
         console.error("Booking/Payment error:", error);
-        res.status(500).json({ success: false, message: "Server error", error: error.message });
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message,
+        });
     }
 });
-
-
 
 router.post("/payment/success/:tran_id", async (req, res) => {
     const { tran_id } = req.params;
@@ -121,8 +121,6 @@ router.post("/payment/success/:tran_id", async (req, res) => {
             },
         }
     );
-
-    res.redirect(`http://localhost:5173/payment/success/${tran_id}`); // your frontend route
 });
 
 router.post("/payment/fail/:tran_id", async (req, res) => {
@@ -137,8 +135,6 @@ router.post("/payment/fail/:tran_id", async (req, res) => {
             },
         }
     );
-
-    res.redirect(`http://localhost:5173/payment/fail/${tran_id}`);
 });
 
 router.post("/payment/cancel/:tran_id", async (req, res) => {
@@ -153,11 +149,7 @@ router.post("/payment/cancel/:tran_id", async (req, res) => {
             },
         }
     );
-
-    res.redirect(`http://localhost:5173/payment/cancel/${tran_id}`);
 });
-
-
 
 // Get appointments for a specific lawyer
 router.get("/myAppointments", verifyToken, async (req, res) => {
@@ -258,9 +250,6 @@ router.patch("/appointments/:id", verifyToken, async (req, res) => {
     });
 });
 
-
 //meeeeeee start code for ssl
-
-
 
 module.exports = router;

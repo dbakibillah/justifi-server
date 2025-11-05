@@ -86,41 +86,39 @@ router.post("/payment/success/:arbitrationId", async (req, res) => {
     const { arbitrationId } = req.params;
     const result = await arbitrationCollection.updateOne(
         { arbitrationId: arbitrationId },
-        { $set: {
-             payment_status: "success",
+        {
+            $set: {
+                payment_status: "success",
                 paidAt: new Date(),
-         } }
+            },
+        }
     );
-
-    if (result.matchedCount > 0) {
-        res.redirect(
-            `http://localhost:5173/payment-success?arbitrationId=${arbitrationId}`
-        );
-    }
 });
 
-router.post("/payment/fail/:arbitrationId",async (req, res) => {
-     const { arbitrationId } = req.params;
+router.post("/payment/fail/:arbitrationId", async (req, res) => {
+    const { arbitrationId } = req.params;
     const result = await arbitrationCollection.updateOne(
         { arbitrationId: arbitrationId },
-        { $set: {
-             payment_status: "failed",
+        {
+            $set: {
+                payment_status: "failed",
                 paidAt: new Date(),
-         } }
+            },
+        }
     );
-    res.redirect("http://localhost:5173/payment-failed");
 });
 
-router.post("/payment/cancel/:arbitrationId",async (req, res) => {
-     const { arbitrationId } = req.params;
+router.post("/payment/cancel/:arbitrationId", async (req, res) => {
+    const { arbitrationId } = req.params;
     const result = await arbitrationCollection.updateOne(
         { arbitrationId: arbitrationId },
-        { $set: {
-             payment_status: "canceled",
+        {
+            $set: {
+                payment_status: "canceled",
                 paidAt: new Date(),
-         } }
+            },
+        }
     );
-    res.redirect("http://localhost:5173/payment-failed");
 });
 
 // top code denotes : initial request create done.
