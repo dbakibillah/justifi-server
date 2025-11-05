@@ -14,6 +14,7 @@ const mediatorRoutes = require("./routes/mediator.routes");
 const bookedLawyerRoutes = require("./routes/bookedLawyer.routes");
 const blogRoutes = require("./routes/blog.routes");
 
+
 // Import database connection
 const { connectToDatabase } = require("./config/db");
 
