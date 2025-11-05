@@ -155,6 +155,15 @@ router.get("/my-arbitrations", verifyToken, async (req, res) => {
     }
 });
 
+
+// Get All arbitration cases 
+router.get("/all-arbitrations", async (req, res) => {
+    const allArbitration = await arbitrationCollection.find();
+   const result = await allArbitration.toArray();
+    res.send(result);
+        
+});
+
 // Get single arbitration case by ID
 router.get("/my-arbitrations/:id", verifyToken, async (req, res) => {
     try {
