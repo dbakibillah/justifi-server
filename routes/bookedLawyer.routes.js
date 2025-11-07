@@ -121,6 +121,8 @@ router.post("/payment/success/:tran_id", async (req, res) => {
             },
         }
     );
+    // Redirect the user to frontend success page
+    res.redirect(`http://localhost:5173/payment/success/${tran_id}`);
 });
 
 router.post("/payment/fail/:tran_id", async (req, res) => {
@@ -135,6 +137,8 @@ router.post("/payment/fail/:tran_id", async (req, res) => {
             },
         }
     );
+    // Redirect the user to frontend success page
+    res.redirect(`http://localhost:5173/payment/fail/${tran_id}`);
 });
 
 router.post("/payment/cancel/:tran_id", async (req, res) => {
@@ -149,6 +153,8 @@ router.post("/payment/cancel/:tran_id", async (req, res) => {
             },
         }
     );
+    // Redirect the user to frontend success page
+    res.redirect(`http://localhost:5173/payment/cancel/${tran_id}`);
 });
 
 // Get appointments for a specific lawyer
