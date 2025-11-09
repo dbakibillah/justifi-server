@@ -20,17 +20,9 @@ router.get("/lawyerProfile", verifyToken, async (req, res) => {
 });
 
 // update lawyer profile
-router.patch("/lawyerProfile/:id", verifyToken, async (req, res) => {
-    const { id } = req.params;
+router.patch("/lawyerProfile/:email", verifyToken, async (req, res) => {
+    const { email } = req.params;
     const data = req.body;
-
-    // Validate the ID
-    if (!ObjectId.isValid(id)) {
-        return res.status(400).send({
-            success: false,
-            error: "Invalid lawyer ID",
-        });
-    }
 
     // Remove _id from the update data to prevent immutable field modification
     const { _id, ...updateData } = data;
@@ -44,7 +36,7 @@ router.patch("/lawyerProfile/:id", verifyToken, async (req, res) => {
     }
 
     const result = await lawyerCollection.updateOne(
-        { _id: new ObjectId(id) },
+        { email: email },
         { $set: updateData }
     );
 
