@@ -19,7 +19,7 @@ router.get("/lawyerProfile", verifyToken, async (req, res) => {
     res.send(lawyer);
 });
 
-// All Lawyers from admin panel
+// Get All Lawyers from admin panel
 router.get("/all-lawyers", verifyToken, async (req, res) => {
     const cursor = lawyerCollection.find();
     const result = await cursor.toArray();
