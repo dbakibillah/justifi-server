@@ -19,11 +19,36 @@ router.get("/lawyerProfile", verifyToken, async (req, res) => {
     res.send(lawyer);
 });
 
-// Get All Lawyers from admin panel
+// Get All Lawyers from admin panel: DONE
 router.get("/all-lawyers", verifyToken, async (req, res) => {
     const cursor = lawyerCollection.find();
-    const result = await cursor.toArray();
+    const result = (await cursor.toArray());
     res.send(result);
+});
+
+// Add a new lawyer by admin: DONE
+router.post("/add-lawyer", verifyToken, verifyAdmin, async (req, res) => {
+    const lawyerData = req.body;
+    const result = await lawyerCollection.insertOne(lawyerData);
+    res.send(result);
+});
+
+// Delete a lawyer by email from admin panel: DONE
+router.delete("/remove-lawyer/:email", verifyToken, async (req, res) => {
+    const { email } = req.params;
+    const result = await lawyerCollection.deleteOne({ email: email });
+
+    if (result.deletedCount === 0) {
+        return res.status(404).send({
+            success: false,
+            error: "Lawyer not found",
+        });
+    }
+
+    res.send({
+        success: true,
+        message: "Lawyer deleted successfully",
+    });
 });
 
 // update lawyer profile
