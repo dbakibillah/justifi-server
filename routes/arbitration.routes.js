@@ -68,7 +68,7 @@ router.post("/arbitration-requests", verifyToken, async (req, res) => {
             res.send({ url: GatewayPageURL });
 
             arbitrationDetails.payment_status = false;
-
+            arbitrationDetails.arbitration_status = "Pending";
             const arbitrationResult = await arbitrationCollection.insertOne(
                 arbitrationDetails
             );
@@ -121,36 +121,11 @@ router.post("/payment/cancel/:arbitrationId", async (req, res) => {
     );
 });
 
-// top code denotes : initial request create done.
-//finish of arbitration request form arbitrationDetails process or store in db
-
-// Get my arbitration cases (simple version without pagination)
-router.get("/my-arbitrations", verifyToken, async (req, res) => {
-    try {
-        const userEmail = req.user.email;
-
-        // Find cases where user is involved
-        const myCases = await arbitrationCollection
-            .find({
-                $or: [
-                    { "plaintiffs.email": userEmail },
-                    { "defendants.email": userEmail },
-                ],
-            })
-            .toArray();
-
-        res.json({
-            success: true,
-            arbitrationDetails: myCases,
-            count: myCases.length,
-        });
-    } catch (error) {
-        console.error("Error getting my arbitrations:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to get your arbitration cases",
-        });
-    }
+//user get korbo
+router.get("/currentArbitrations", async (req, res) => {
+    const { email } = req.query;
+    const user = await userCollection.findOne({ email });
+    res.send(user);
 });
 
 // Get All arbitration cases
@@ -160,49 +135,139 @@ router.get("/all-arbitrations", async (req, res) => {
     res.send(result);
 });
 
-// Get single arbitration case by ID
-router.get("/my-arbitrations/:id", verifyToken, async (req, res) => {
+// Get my arbitrations - FIXED VERSION
+router.get("/myArbitrations", verifyToken, async (req, res) => {
+    console.log("body : ", req.query)
     try {
-        const caseId = req.params.id;
-        const userEmail = req.user.email;
+        const { email } = req.query;
+        //console.log("Fetching arbitrations for email:", email);
 
-        let query = { arbitration_id: caseId };
-
-        const arbitrationCase = await arbitrationCollection.findOne(query);
-
-        if (!arbitrationCase) {
-            return res.status(404).json({
-                success: false,
-                message: "Arbitration case not found",
-            });
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
         }
 
-        // Check if user has access to this case
-        const isPlaintiff = arbitrationCase.plaintiffs.some(
-            (p) => p.email === userEmail
-        );
-        const isDefendant = arbitrationCase.defendants.some(
-            (d) => d.email === userEmail
-        );
+        // Get all arbitrations where user is plaintiff or defendant
+        const allArbitrations = await arbitrationCollection.find({}).sort({ submissionDate: -1 }).toArray();
+        
+        //console.log("Total arbitrations found:", allArbitrations.length);
 
-        if (!isPlaintiff && !isDefendant) {
-            return res.status(403).json({
-                success: false,
-                message: "You don't have permission to view this case",
-            });
-        }
+        // Filter arbitrations where user is involved
+        const userArbitrations = allArbitrations.filter(arbitration => {
+            // Check plaintiffs
+            if (arbitration.plaintiffs) {
+                if (Array.isArray(arbitration.plaintiffs)) {
+                    const isPlaintiff = arbitration.plaintiffs.some(plaintiff => 
+                        plaintiff && plaintiff.email === email
+                    );
+                    if (isPlaintiff) return true;
+                } else {
+                    // Handle object format {1: {...}, 2: {...}}
+                    const plaintiffEntries = Object.values(arbitration.plaintiffs);
+                    const isPlaintiff = plaintiffEntries.some(plaintiff => 
+                        plaintiff && plaintiff.email === email
+                    );
+                    if (isPlaintiff) return true;
+                }
+            }
 
-        res.json({
-            success: true,
-            arbitrationDetails: arbitrationCase,
+            // Check defendants
+            if (arbitration.defendants) {
+                if (Array.isArray(arbitration.defendants)) {
+                    const isDefendant = arbitration.defendants.some(defendant => 
+                        defendant && defendant.email === email
+                    );
+                    if (isDefendant) return true;
+                } else {
+                    // Handle object format {1: {...}, 2: {...}}
+                    const defendantEntries = Object.values(arbitration.defendants);
+                    const isDefendant = defendantEntries.some(defendant => 
+                        defendant && defendant.email === email
+                    );
+                    if (isDefendant) return true;
+                }
+            }
+
+            return false;
         });
+
+        //console.log("User arbitrations found:", userArbitrations.length);
+        res.json(userArbitrations);
+
     } catch (error) {
-        console.error("Error getting arbitration case:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to get arbitration case details",
-        });
+        console.error("Error in /myArbitrations:", error);
+        res.status(500).json({ error: error.message });
     }
 });
+
+// routes/arbitrations.js - Add this route
+router.get("/my-arbitrations/:id", verifyToken, async (req, res) => {
+    console.log( "arbitration id : ", req.query)
+    try {
+        const caseId = req.params.id;
+        const { email } = req.query;
+
+        console.log("Fetching arbitration:", caseId, "for email:", email);
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        let query;
+        if (ObjectId.isValid(caseId)) {
+            query = { _id: new ObjectId(caseId) };
+        } else {
+            query = { arbitrationId: caseId };
+        }
+
+        const arbitration = await arbitrationCollection.findOne(query);
+
+        if (!arbitration) {
+            return res.status(404).json({ error: 'Arbitration not found' });
+        }
+
+        // Check if user has access to this arbitration
+        let hasAccess = false;
+
+        // Check plaintiffs
+        if (arbitration.plaintiffs) {
+            if (Array.isArray(arbitration.plaintiffs)) {
+                hasAccess = arbitration.plaintiffs.some(plaintiff => 
+                    plaintiff && plaintiff.email === email
+                );
+            } else {
+                const plaintiffEntries = Object.values(arbitration.plaintiffs);
+                hasAccess = plaintiffEntries.some(plaintiff => 
+                    plaintiff && plaintiff.email === email
+                );
+            }
+        }
+
+        // Check defendants if not already found
+        if (!hasAccess && arbitration.defendants) {
+            if (Array.isArray(arbitration.defendants)) {
+                hasAccess = arbitration.defendants.some(defendant => 
+                    defendant && defendant.email === email
+                );
+            } else {
+                const defendantEntries = Object.values(arbitration.defendants);
+                hasAccess = defendantEntries.some(defendant => 
+                    defendant && defendant.email === email
+                );
+            }
+        }
+
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this arbitration' });
+        }
+
+        res.json(arbitration);
+
+    } catch (error) {
+        console.error("Error in /my-arbitrations/:id:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 
 module.exports = router;
