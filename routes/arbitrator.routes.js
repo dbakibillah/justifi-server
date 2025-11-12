@@ -13,4 +13,11 @@ router.get("/arbitrators", async (req, res) => {
     res.send(result);
 });
 
+// Get All Arbitrators from admin panel
+router.get("/all-arbitrators", verifyToken, async (req, res) => {
+    const cursor = arbitratorCollection.find();
+    const result = await cursor.toArray();
+    res.send(result);
+});
+
 module.exports = router;

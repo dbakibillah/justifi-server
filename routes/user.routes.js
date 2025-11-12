@@ -32,4 +32,10 @@ router.post("/users", async (req, res) => {
     res.send(result);
 });
 
+router.get("/userProfile", verifyToken, async (req, res) => {
+    const { email } = req.query;
+    const user = await userCollection.findOne({ email });
+    res.send(user);
+});
+
 module.exports = router;

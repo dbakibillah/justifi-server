@@ -5,10 +5,17 @@ const { client } = require("../config/db");
 const verifyToken = require("../middleware/verifyToken");
 const verifyAdmin = require("../middleware/verifyAdmin");
 
-const arbitratorCollection = client.db("justiFi").collection("mediators");
+const mediatorCollection = client.db("justiFi").collection("mediators");
 
 router.get("/mediators", async (req, res) => {
-    const cursor = arbitratorCollection.find();
+    const cursor = mediatorCollection.find();
+    const result = await cursor.toArray();
+    res.send(result);
+});
+
+// Get All Mediators from admin panel
+router.get("/all-mediators", verifyToken, async (req, res) => {
+    const cursor = mediatorCollection.find();
     const result = await cursor.toArray();
     res.send(result);
 });

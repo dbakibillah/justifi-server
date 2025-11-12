@@ -4,200 +4,271 @@ const { ObjectId } = require("mongodb");
 const { client } = require("../config/db");
 const verifyToken = require("../middleware/verifyToken");
 
+const SSLCommerzPayment = require("sslcommerz-lts");
+
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASS;
+const is_live = false;
+
 const arbitrationCollection = client.db("justiFi").collection("arbitrations");
 
-// Simple function to create an arbitration ID
-function createArbitrationId() {
-    const time = Date.now().toString().slice(-6);
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `ARB-${time}-${random}`;
+function createUniqueArbitrationId() {
+    const prefix = "ARB";
+    const objectId = new ObjectId().toString();
+
+    const part1 = objectId.slice(0, 5).toUpperCase();
+    const part2 = parseInt(objectId.slice(5, 13), 16)
+        .toString()
+        .padStart(8, "0")
+        .slice(0, 8);
+
+    return `${prefix}-${part1}-${part2}`;
 }
 
-// POST: Create a new arbitration request
+// Create arbitration case request from frontend arbitrationDetails (arbitration.jsx)
 router.post("/arbitration-requests", verifyToken, async (req, res) => {
     try {
-        const data = req.body;
-        const userEmail = req.user.email;
+        const arbitrationDetails = req.body;
+        const arbitrationId = createUniqueArbitrationId();
 
-        // Check if required fields are missing
-        if (!data.category || !data.nature_of_dispute || !data.suit_value || !data.plaintiffs || !data.defendants) {
-            return res.status(400).json({
-                success: false,
-                message: "Please fill all required fields!"
-            });
-        }
-
-        // Plaintiffs and Defendants must be an array with at least one person
-        if (!Array.isArray(data.plaintiffs) || data.plaintiffs.length === 0) {
-            return res.status(400).json({ success: false, message: "Add at least one plaintiff" });
-        }
-        if (!Array.isArray(data.defendants) || data.defendants.length === 0) {
-            return res.status(400).json({ success: false, message: "Add at least one defendant" });
-        }
-
-        // Suit value must be a positive number
-        if (isNaN(data.suit_value) || data.suit_value <= 0) {
-            return res.status(400).json({ success: false, message: "Suit value must be a positive number" });
-        }
-
-        // Create unique arbitration ID
-        const arbitrationId = createArbitrationId();
-
-        // Prepare data to save in database
-        const newArbitration = {
-            arbitration_id: arbitrationId,
-            category: data.category,
-            nature_of_dispute: data.nature_of_dispute,
-            suit_value: parseFloat(data.suit_value),
-            submitting_date: new Date(),
-            status: "pending",
-            plaintiffs: data.plaintiffs,
-            defendants: data.defendants,
-            arbitrators: [],
-            hearings: [],
-            evidence: [],
-            award: {
-                award_id: "W-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-                date: null,
-                decision: null,
-                status: "Pending"
-            },
-            created_by: userEmail,
-            created_at: new Date(),
-            updated_at: new Date()
+        const data = {
+            total_amount: arbitrationDetails.processingFee,
+            currency: "BDT",
+            tran_id: arbitrationId,
+            success_url: `http://localhost:5000/payment/success/${arbitrationId}`,
+            fail_url: `http://localhost:5000/payment/fail/${arbitrationId}`,
+            cancel_url: `http://localhost:5000/payment/fail/${arbitrationId}`,
+            ipn_url: "http://localhost:3030/ipn",
+            shipping_method: "Courier",
+            product_name: "Computer.",
+            product_category: "Electronic",
+            product_profile: "general",
+            cus_name: "Customer Name",
+            cus_email: "mHmZV@example.com",
+            cus_add1: "Dhaka",
+            cus_add2: "Dhaka",
+            cus_city: "Dhaka",
+            cus_state: "Dhaka",
+            cus_postcode: "1000",
+            cus_country: "Bangladesh",
+            cus_phone: "01711111111",
+            cus_fax: "01711111111",
+            ship_name: "Customer Name",
+            ship_add1: "Dhaka",
+            ship_add2: "Dhaka",
+            ship_city: "Dhaka",
+            ship_state: "Dhaka",
+            ship_postcode: 1000,
+            ship_country: "Bangladesh",
         };
+        const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+        sslcz.init(data).then(async (apiResponse) => {
+            // Redirect the user to payment gateway
+            let GatewayPageURL = apiResponse.GatewayPageURL;
+            res.send({ url: GatewayPageURL });
 
-        // Save to database
-        await arbitrationCollection.insertOne(newArbitration);
-
-        res.status(201).json({
-            success: true,
-            message: "Arbitration request submitted!",
-            data: {
-                arbitration_id: arbitrationId,
-                status: "pending"
-            }
+            arbitrationDetails.payment_status = false;
+            arbitrationDetails.arbitration_status = "Pending";
+            const arbitrationResult = await arbitrationCollection.insertOne(
+                arbitrationDetails
+            );
         });
-
     } catch (error) {
         console.error("Error:", error);
-        res.status(500).json({ success: false, message: "Something went wrong!" });
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong!",
+        });
     }
 });
 
-// GET: Show my arbitration requests
-router.get("/my-arbitrations", verifyToken, async (req, res) => {
+router.post("/payment/success/:arbitrationId", async (req, res) => {
+    const { arbitrationId } = req.params;
+    const result = await arbitrationCollection.updateOne(
+        { arbitrationId: arbitrationId },
+        {
+            $set: {
+                payment_status: "success",
+                paidAt: new Date(),
+            },
+        }
+    );
+});
+
+router.post("/payment/fail/:arbitrationId", async (req, res) => {
+    const { arbitrationId } = req.params;
+    const result = await arbitrationCollection.updateOne(
+        { arbitrationId: arbitrationId },
+        {
+            $set: {
+                payment_status: "failed",
+                paidAt: new Date(),
+            },
+        }
+    );
+});
+
+router.post("/payment/cancel/:arbitrationId", async (req, res) => {
+    const { arbitrationId } = req.params;
+    const result = await arbitrationCollection.updateOne(
+        { arbitrationId: arbitrationId },
+        {
+            $set: {
+                payment_status: "canceled",
+                paidAt: new Date(),
+            },
+        }
+    );
+});
+
+//user get korbo
+router.get("/currentArbitrations", async (req, res) => {
+    const { email } = req.query;
+    const user = await userCollection.findOne({ email });
+    res.send(user);
+});
+
+// Get All arbitration cases
+router.get("/all-arbitrations", async (req, res) => {
+    const allArbitration = await arbitrationCollection.find();
+    const result = await allArbitration.toArray();
+    res.send(result);
+});
+
+// Get my arbitrations - FIXED VERSION
+router.get("/myArbitrations", verifyToken, async (req, res) => {
     try {
-        const userEmail = req.user.email;
-        const status = req.query.status;
-        //! Pagination should be deleted later
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const { email } = req.query;
 
-        let filter = {
-            $or: [
-                { "plaintiffs.email": userEmail },
-                { "defendants.email": userEmail },
-                { created_by: userEmail }
-            ]
-        };
-
-        if (status) {
-            filter.status = status;
+        if (!email) {
+            return res.status(400).json({ error: "Email is required" });
         }
 
-        const data = await arbitrationCollection.find(filter)
-            .skip(skip)
-            .limit(limit)
+        // Get all arbitrations where user is plaintiff or defendant
+        const allArbitrations = await arbitrationCollection
+            .find({})
+            .sort({ submissionDate: -1 })
             .toArray();
 
-        const total = await arbitrationCollection.countDocuments(filter);
+        //console.log("Total arbitrations found:", allArbitrations.length);
 
-        res.json({
-            success: true,
-            data,
-            page,
-            total,
-            pages: Math.ceil(total / limit)
-        });
-
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to get arbitrations" });
-    }
-});
-
-// GET: Single arbitration by ID
-router.get("/my-arbitrations/:id", verifyToken, async (req, res) => {
-    try {
-        const id = req.params.id;
-        const userEmail = req.user.email;
-
-        let filter;
-        if (ObjectId.isValid(id)) {
-            filter = { _id: new ObjectId(id) };
-        } else {
-            filter = { arbitration_id: id };
-        }
-
-        const arbitration = await arbitrationCollection.findOne(filter);
-
-        if (!arbitration) {
-            return res.status(404).json({ success: false, message: "Arbitration not found" });
-        }
-
-        // Only involved users or creator can view it
-        const isInvolved =
-            arbitration.plaintiffs.some(p => p.email === userEmail) ||
-            arbitration.defendants.some(d => d.email === userEmail) ||
-            arbitration.created_by === userEmail;
-
-        if (!isInvolved) {
-            return res.status(403).json({ success: false, message: "You are not allowed to see this" });
-        }
-
-        res.json({ success: true, data: arbitration });
-
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to load arbitration details" });
-    }
-});
-
-// PATCH: Cancel arbitration (only creator and only if status is pending)
-router.patch("/my-arbitrations/:id/cancel", verifyToken, async (req, res) => {
-    try {
-        const id = req.params.id;
-        const userEmail = req.user.email;
-
-        let filter;
-        if (ObjectId.isValid(id)) {
-            filter = { _id: new ObjectId(id), created_by: userEmail };
-        } else {
-            filter = { arbitration_id: id, created_by: userEmail };
-        }
-
-        const arbitration = await arbitrationCollection.findOne(filter);
-        if (!arbitration) {
-            return res.status(404).json({ success: false, message: "Arbitration not found" });
-        }
-
-        if (arbitration.status !== "pending") {
-            return res.status(400).json({ success: false, message: "Only pending arbitrations can be cancelled" });
-        }
-
-        await arbitrationCollection.updateOne(filter, {
-            $set: {
-                status: "cancel",
-                cancellation_reason: req.body.cancellation_reason || "Cancelled by user",
-                cancelled_by: userEmail,
-                cancelled_at: new Date()
+        // Filter arbitrations where user is involved
+        const userArbitrations = allArbitrations.filter((arbitration) => {
+            // Check plaintiffs
+            if (arbitration.plaintiffs) {
+                if (Array.isArray(arbitration.plaintiffs)) {
+                    const isPlaintiff = arbitration.plaintiffs.some(
+                        (plaintiff) => plaintiff && plaintiff.email === email
+                    );
+                    if (isPlaintiff) return true;
+                } else {
+                    // Handle object format {1: {...}, 2: {...}}
+                    const plaintiffEntries = Object.values(
+                        arbitration.plaintiffs
+                    );
+                    const isPlaintiff = plaintiffEntries.some(
+                        (plaintiff) => plaintiff && plaintiff.email === email
+                    );
+                    if (isPlaintiff) return true;
+                }
             }
+
+            // Check defendants
+            if (arbitration.defendants) {
+                if (Array.isArray(arbitration.defendants)) {
+                    const isDefendant = arbitration.defendants.some(
+                        (defendant) => defendant && defendant.email === email
+                    );
+                    if (isDefendant) return true;
+                } else {
+                    // Handle object format {1: {...}, 2: {...}}
+                    const defendantEntries = Object.values(
+                        arbitration.defendants
+                    );
+                    const isDefendant = defendantEntries.some(
+                        (defendant) => defendant && defendant.email === email
+                    );
+                    if (isDefendant) return true;
+                }
+            }
+
+            return false;
         });
 
-        res.json({ success: true, message: "Arbitration cancelled" });
-
+        res.json(userArbitrations);
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to cancel" });
+        console.error("Error in /myArbitrations:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// routes/arbitrations.js - Add this route
+router.get("/my-arbitrations/:id", verifyToken, async (req, res) => {
+    console.log("arbitration id : ", req.query);
+    try {
+        const caseId = req.params.id;
+        const { email } = req.query;
+
+        console.log("Fetching arbitration:", caseId, "for email:", email);
+
+        if (!email) {
+            return res.status(400).json({ error: "Email is required" });
+        }
+
+        let query;
+        if (ObjectId.isValid(caseId)) {
+            query = { _id: new ObjectId(caseId) };
+        } else {
+            query = { arbitrationId: caseId };
+        }
+
+        const arbitration = await arbitrationCollection.findOne(query);
+
+        if (!arbitration) {
+            return res.status(404).json({ error: "Arbitration not found" });
+        }
+
+        // Check if user has access to this arbitration
+        let hasAccess = false;
+
+        // Check plaintiffs
+        if (arbitration.plaintiffs) {
+            if (Array.isArray(arbitration.plaintiffs)) {
+                hasAccess = arbitration.plaintiffs.some(
+                    (plaintiff) => plaintiff && plaintiff.email === email
+                );
+            } else {
+                const plaintiffEntries = Object.values(arbitration.plaintiffs);
+                hasAccess = plaintiffEntries.some(
+                    (plaintiff) => plaintiff && plaintiff.email === email
+                );
+            }
+        }
+
+        // Check defendants if not already found
+        if (!hasAccess && arbitration.defendants) {
+            if (Array.isArray(arbitration.defendants)) {
+                hasAccess = arbitration.defendants.some(
+                    (defendant) => defendant && defendant.email === email
+                );
+            } else {
+                const defendantEntries = Object.values(arbitration.defendants);
+                hasAccess = defendantEntries.some(
+                    (defendant) => defendant && defendant.email === email
+                );
+            }
+        }
+
+        if (!hasAccess) {
+            return res
+                .status(403)
+                .json({ error: "Access denied to this arbitration" });
+        }
+
+        res.json(arbitration);
+    } catch (error) {
+        console.error("Error in /my-arbitrations/:id:", error);
+        res.status(500).json({ error: error.message });
     }
 });
 
