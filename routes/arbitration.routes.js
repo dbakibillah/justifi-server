@@ -90,7 +90,7 @@ router.post("/payment/success/:arbitrationId", async (req, res) => {
         { arbitrationId: arbitrationId },
         {
             $set: {
-                payment_status: "success",
+                payment_status: true,
                 paidAt: new Date(),
             },
         }
