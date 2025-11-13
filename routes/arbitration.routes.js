@@ -281,4 +281,27 @@ router.get("/my-arbitrations/:id", verifyToken, async (req, res) => {
     }
 });
 
+// Submitting agreement from both parties from admin
+router.patch("/arbitration-agreement", verifyToken, async (req, res) => {
+    const { data } = req.body;
+    const caseId = data.caseId;
+    // agreementDetails.arbitration_status = "Ongoing";
+    
+    try {
+        const result = await arbitrationCollection.updateOne(
+            { _id: new ObjectId(caseId) },
+            { $set: data }
+        );
+
+        if (result.modifiedCount === 1) {
+            res.json({ message: "Agreement submitted successfully" });
+        } else {
+            res.status(404).json({ error: "Arbitration not found" });
+        }
+    } catch (error) {
+        console.error("Error in /arbitration-agreement:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
