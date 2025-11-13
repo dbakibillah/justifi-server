@@ -67,6 +67,7 @@ router.post("/arbitration-requests", verifyToken, async (req, res) => {
             let GatewayPageURL = apiResponse.GatewayPageURL;
             res.send({ url: GatewayPageURL });
 
+            arbitrationDetails.arbitrationId = arbitrationId;
             arbitrationDetails.payment_status = false;
             arbitrationDetails.arbitration_status = "Pending";
             const arbitrationResult = await arbitrationCollection.insertOne(
@@ -84,6 +85,7 @@ router.post("/arbitration-requests", verifyToken, async (req, res) => {
 
 router.post("/payment/success/:arbitrationId", async (req, res) => {
     const { arbitrationId } = req.params;
+    console.log(arbitrationId);
     const result = await arbitrationCollection.updateOne(
         { arbitrationId: arbitrationId },
         {
@@ -132,6 +134,13 @@ router.get("/currentArbitrations", async (req, res) => {
 router.get("/all-arbitrations", async (req, res) => {
     const allArbitration = await arbitrationCollection.find();
     const result = await allArbitration.toArray();
+    res.send(result);
+});
+
+// Get All arbitration cases from admin panel
+router.get("/all-arbitrations-admin", verifyToken, async (req, res) => {
+    const allArbitration = await arbitrationCollection.find();
+    const result = await allArbitration.sort({ submissionDate: -1 }).toArray();
     res.send(result);
 });
 
