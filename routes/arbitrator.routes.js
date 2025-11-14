@@ -8,10 +8,16 @@ const verifyAdmin = require("../middleware/verifyAdmin");
 const arbitratorCollection = client.db("justiFi").collection("arbitrators");
 const userCollection = client.db("justiFi").collection("users");
 const arbitrationCollection = client.db("justiFi").collection("arbitrations");
-const Hearing=client.db("justiFi").collection("Hearing");
+const hearingsCollection=client.db("justiFi").collection("hearings");
 
 router.get("/arbitrators", async (req, res) => {
     const cursor = arbitratorCollection.find();
+    const result = await cursor.toArray();
+    res.send(result);
+});
+
+router.get("/hearings", async (req, res) => {
+    const cursor = hearingsCollection.find();
     const result = await cursor.toArray();
     res.send(result);
 });
@@ -316,6 +322,267 @@ router.get('/arbitrations/details/:id', async (req, res) => {
 
 
 //All Hearing code Here 
+// POST /api/hearings/create - CREATE NEW HEARING (FIXED)
+router.post('/hearings/create',verifyToken, async (req, res) => {
+    
+    // Check if req.body exists
+    if (!req.body) {
+        return res.status(400).json({
+            success: false,
+            message: 'Request body is missing or invalid'
+        });
+    }
+
+    try {
+        const {
+            arbitrationId,
+            date,
+            meetLink,
+            hearingAgenda,
+            duration = 120,
+            createdBy
+        } = req.body;
+
+        // Validate required fields
+        if (!arbitrationId || !date || !meetLink || !hearingAgenda || !createdBy) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: arbitrationId, date, meetLink, hearingAgenda, createdBy'
+            });
+        }
+
+        // Check if arbitration exists using native MongoDB driver
+        const arbitration = await arbitrationCollection.findOne({ 
+            arbitrationId: arbitrationId 
+        });
+        
+        if (!arbitration) {
+            return res.status(404).json({
+                success: false,
+                message: 'Arbitration not found'
+            });
+        }
+
+        // Get the next hearing number using native MongoDB driver
+        const lastHearing = await hearingsCollection
+            .find({ arbitrationId: arbitrationId })
+            .sort({ hearingNumber: -1 })
+            .limit(1)
+            .toArray();
+        
+        const hearingNumber = lastHearing.length > 0 ? lastHearing[0].hearingNumber + 1 : 1;
+
+        // Generate hearing ID
+        const hearingId = `ARB-HER-${Date.now()}`;
+
+        // Create new hearing object
+        const newHearing = {
+            arbitrationId,
+            hearingId,
+            hearingNumber,
+            date: new Date(date),
+            duration: parseInt(duration),
+            meetLink,
+            hearingAgenda,
+            status: 'scheduled',
+            cancellationReason: '',
+            createdBy,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            arbitrator1Comment: '',
+            arbitrator2Comment: '',
+            presidingArbitratorComment: '',
+            privateNotes: '',
+            attendance: {
+                arbitrator1: false,
+                arbitrator2: false,
+                presidingArbitrator: false,
+                plaintiffs: [],
+                defendants: []
+            },
+            recording: {
+                recorded: false,
+                recordingUrl: '',
+                duration: '',
+                fileSize: ''
+            },
+            documents: []
+        };
+
+        // Save hearing to database using native MongoDB driver
+        const result = await hearingsCollection.insertOne(newHearing);
+        const savedHearing = {
+            _id: result.insertedId,
+            ...newHearing
+        };
+
+        console.log("Hearing saved successfully:", savedHearing);
+
+        res.status(201).json({
+            success: true,
+            message: 'Hearing created successfully',
+            data: savedHearing
+        });
+
+    } catch (error) {
+        console.error('Error creating hearing:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/hearings/arbitration/:arbitrationId - Get all hearings for an arbitration (FIXED)
+router.get('/hearings/arbitration/:arbitrationId', verifyToken,async (req, res) => {
+    try {
+        const { arbitrationId } = req.params;
+
+        // Validate arbitrationId
+        if (!arbitrationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Arbitration ID is required'
+            });
+        }
+
+        // Find all hearings for this arbitration using native MongoDB driver
+        const hearings = await hearingsCollection
+            .find({ arbitrationId: arbitrationId })
+            .sort({ date: 1 }) // Sort by date ascending
+            .toArray();
+
+        // If no hearings found, return empty array
+        if (!hearings || hearings.length === 0) {
+            return res.json({
+                success: true,
+                message: 'No hearings found for this arbitration',
+                data: []
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Hearings fetched successfully',
+            data: hearings
+        });
+
+    } catch (error) {
+        console.error('Error fetching hearings:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/hearings/:hearingId - Get single hearing by ID (FIXED)
+router.get('/hearings/:hearingId',verifyToken, async (req, res) => {
+    try {
+        const { hearingId } = req.params;
+
+        const hearing = await hearingsCollection.findOne({ hearingId: hearingId });
+
+        if (!hearing) {
+            return res.status(404).json({
+                success: false,
+                message: 'Hearing not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Hearing fetched successfully',
+            data: hearing
+        });
+
+    } catch (error) {
+        console.error('Error fetching hearing:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+});
+
+// PUT /api/hearings/:hearingId - Update hearing (FIXED)
+router.put('/hearings/:hearingId',verifyToken, async (req, res) => {
+    try {
+        const { hearingId } = req.params;
+        const updateData = req.body;
+
+        // Remove immutable fields
+        delete updateData._id;
+        delete updateData.hearingId;
+        delete updateData.arbitrationId;
+        delete updateData.hearingNumber;
+        delete updateData.createdBy;
+        delete updateData.createdAt;
+
+        // Add updatedAt timestamp
+        updateData.updatedAt = new Date();
+
+        const result = await hearingsCollection.findOneAndUpdate(
+            { hearingId: hearingId },
+            { $set: updateData },
+            { returnDocument: 'after' } // equivalent to {new: true} in Mongoose
+        );
+
+        if (!result.value) {
+            return res.status(404).json({
+                success: false,
+                message: 'Hearing not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Hearing updated successfully',
+            data: result.value
+        });
+
+    } catch (error) {
+        console.error('Error updating hearing:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+});
+
+// DELETE /api/hearings/:hearingId - Delete hearing (FIXED)
+router.delete('/hearings/:hearingId',verifyToken, async (req, res) => {
+    try {
+        const { hearingId } = req.params;
+
+        const result = await hearingsCollection.findOneAndDelete({ hearingId: hearingId });
+
+        if (!result.value) {
+            return res.status(404).json({
+                success: false,
+                message: 'Hearing not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Hearing deleted successfully',
+            data: result.value
+        });
+
+    } catch (error) {
+        console.error('Error deleting hearing:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+});
 
 
 module.exports = router;
