@@ -29,7 +29,7 @@ router.get("/ArbitratorProfile", verifyToken, async (req, res) => {
     res.send(arbitrator);
 });
 
-// update lawyer profile
+// update arbitrator profile
 router.patch("/ArbitratorProfile/:email", verifyToken, async (req, res) => {
     try {
         const { email } = req.params;
@@ -83,8 +83,6 @@ router.patch("/ArbitratorProfile/:email", verifyToken, async (req, res) => {
         });
     }
 });
-
-
 
 
 
