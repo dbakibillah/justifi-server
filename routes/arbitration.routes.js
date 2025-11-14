@@ -281,12 +281,23 @@ router.get("/my-arbitrations/:id", verifyToken, async (req, res) => {
     }
 });
 
+// Create session link from admin panel
+router.patch("/create-session/:_id", verifyToken, async (req, res) => {
+    const { _id } = req.params;
+    const sessionData = req.body;
+    const result = await arbitrationCollection.updateOne(
+        { _id: new ObjectId(_id) },
+        { $set: { sessionData } }
+    );
+    res.json(result);
+});
+
 // Submitting agreement from both parties from admin
 router.patch("/arbitration-agreement", verifyToken, async (req, res) => {
     const { data } = req.body;
     const caseId = data.caseId;
-    // agreementDetails.arbitration_status = "Ongoing";
-    
+    data.arbitration_status = "Ongoing";
+
     try {
         const result = await arbitrationCollection.updateOne(
             { _id: new ObjectId(caseId) },
