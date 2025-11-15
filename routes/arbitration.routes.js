@@ -90,7 +90,7 @@ router.post("/payment/success/:arbitrationId", async (req, res) => {
         { arbitrationId: arbitrationId },
         {
             $set: {
-                payment_status: "success",
+                payment_status: true,
                 paidAt: new Date(),
             },
         }
@@ -133,16 +133,16 @@ router.get("/currentArbitrations", async (req, res) => {
 // Get All arbitration cases
 router.get("/all-arbitrations", async (req, res) => {
     const allArbitration = await arbitrationCollection.find();
-    const result = await allArbitration.toArray();
-    res.send(result);
-});
-
-// Get All arbitration cases from admin panel
-router.get("/all-arbitrations-admin", verifyToken, async (req, res) => {
-    const allArbitration = await arbitrationCollection.find();
     const result = await allArbitration.sort({ submissionDate: -1 }).toArray();
     res.send(result);
 });
+
+// // Get All arbitration cases from admin panel
+// router.get("/all-arbitrations-admin", verifyToken, async (req, res) => {
+//     const allArbitration = await arbitrationCollection.find();
+//     const result = await allArbitration.sort({ submissionDate: -1 }).toArray();
+//     res.send(result);
+// });
 
 // Get my arbitrations - FIXED VERSION
 router.get("/myArbitrations", verifyToken, async (req, res) => {
