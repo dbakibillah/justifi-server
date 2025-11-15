@@ -85,9 +85,6 @@ router.patch("/ArbitratorProfile/:email", verifyToken, async (req, res) => {
 });
 
 
-
-
-
 ///write code for arbitrator (mehedi)
 // GET arbitrations where user is presiding arbitrator
 router.get('/arbitrations/presiding', async (req, res) => {
